@@ -1,0 +1,239 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#123c5a">
+<title>プリズム合成計算</title>
+<style>
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #182b3a;
+  background: #f1f5f9;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 20px 14px 36px; }
+main { max-width: 600px; margin: auto; }
+header {
+  background: #123c5a; color: white;
+  border-radius: 18px; padding: 22px;
+  margin-bottom: 16px;
+}
+h1 { font-size: 24px; margin: 0 0 7px; }
+header p { margin: 0; color: #dceaf5; font-size: 14px; }
+.card {
+  background: white; border-radius: 16px;
+  padding: 20px; margin-bottom: 14px;
+  box-shadow: 0 2px 8px #16324f0d;
+}
+h2 { font-size: 17px; margin: 0 0 15px; }
+label { display: block; font-size: 14px; font-weight: 650; }
+input, select, button {
+  width: 100%; font: inherit; border-radius: 10px;
+  min-height: 46px;
+}
+input, select {
+  border: 1px solid #cbd5e1; background: white;
+  padding: 10px 12px; margin-top: 7px;
+}
+.unit { font-size: 13px; color: #64748b; }
+.field { margin-bottom: 17px; }
+.result {
+  background: #eaf3fa; border-radius: 13px;
+  padding: 17px; margin-bottom: 12px;
+}
+.result small { color: #526b7d; }
+.big { font-size: 32px; font-weight: 750; margin-top: 4px; }
+.two {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.tile { border: 1px solid #dce5ed; border-radius: 12px; padding: 14px; }
+.tile .value { font-size: 21px; font-weight: 750; margin-top: 6px; }
+button {
+  border: 0; padding: 12px; font-weight: 700;
+  cursor: pointer; margin-top: 10px;
+}
+.primary { background: #123c5a; color: white; }
+.secondary { background: #e8eef4; color: #18374e; }
+.note { color: #64748b; font-size: 12px; line-height: 1.7; }
+footer { font-size: 12px; color: #64748b; line-height: 1.7; padding: 8px 2px; }
+@media (max-width: 360px) {
+  .two { grid-template-columns: 1fr; }
+  .big { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>プリズム合成計算</h1>
+  <p>水平・垂直プリズムから合成度数と方向を計算</p>
+</header>
+
+<section class="card">
+  <h2>① 水平プリズム</h2>
+  <div class="field">
+    <label for="horizontal">水平プリズム度数（Δ）</label>
+    <input id="horizontal" type="number" min="0" step="any" value="3">
+  </div>
+  <div class="field">
+    <label for="hdir">基底方向</label>
+    <select id="hdir">
+      <option value="in">内方（鼻側）</option>
+      <option value="out" selected>外方（耳側）</option>
+    </select>
+  </div>
+
+  <h2>② 垂直プリズム</h2>
+  <div class="field">
+    <label for="vertical">垂直プリズム度数（Δ）</label>
+    <input id="vertical" type="number" min="0" step="any" value="4">
+  </div>
+  <div class="field">
+    <label for="vdir">基底方向</label>
+    <select id="vdir">
+      <option value="up" selected>上方</option>
+      <option value="down">下方</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="precision">表示する小数桁数</label>
+    <select id="precision">
+      <option value="0">整数</option>
+      <option value="1">小数第1位</option>
+      <option value="2" selected>小数第2位</option>
+      <option value="3">小数第3位</option>
+    </select>
+  </div>
+  <button class="secondary" id="reset">入力をリセット</button>
+</section>
+
+<section class="card" aria-live="polite">
+  <h2>③ 合成計算結果</h2>
+  <div class="result">
+    <small>合成プリズム度数</small>
+    <div class="big"><span id="magnitude">5.00</span> Δ</div>
+  </div>
+  <div class="two">
+    <div class="tile">
+      <small>合成角度</small>
+      <div class="value"><span id="angle">53.13</span>°</div>
+      <small>右方向を0°、上方向を90°</small>
+    </div>
+    <div class="tile">
+      <small>合成基底方向</small>
+      <div class="value" id="direction">外方・上方</div>
+    </div>
+  </div>
+  <button class="primary" id="copy">計算結果をコピー</button>
+  <p class="note" id="message" role="status"></p>
+</section>
+
+<footer>
+  角度は右方向（外方）を0°とし、上方向へ反時計回りに測ります。
+  内方を180°、下方を270°とします。
+  左右眼や施設独自の表記規約がある場合は、実際の運用規約を確認してください。
+</footer>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const ids = ["horizontal", "hdir", "vertical", "vdir", "precision"];
+
+function calculate() {
+  const hs = $("horizontal").value.trim();
+  const vs = $("vertical").value.trim();
+  const hval = Number(hs);
+  const vval = Number(vs);
+  const message = $("message");
+
+  if (hs === "" || vs === "" ||
+      !Number.isFinite(hval) || !Number.isFinite(vval) ||
+      hval < 0 || vval < 0) {
+    $("magnitude").textContent = "—";
+    $("angle").textContent = "—";
+    $("direction").textContent = "—";
+    message.textContent = "度数は0以上の数値を入力してください。";
+    return;
+  }
+
+  // 外方を+x、上方を+yとする
+  const x = hval * ($("hdir").value === "out" ? 1 : -1);
+  const y = vval * ($("vdir").value === "up" ? 1 : -1);
+
+  const mag = Math.hypot(x, y);
+  const digits = Number($("precision").value);
+  const zero = 1e-12;
+
+  $("magnitude").textContent = mag.toFixed(digits);
+
+  if (mag < zero) {
+    $("angle").textContent = "—";
+    $("direction").textContent = "合成なし";
+    message.textContent = "水平・垂直ともに0Δです。方向角は定まりません。";
+    return;
+  }
+
+  // atan2(y,x): 右方向0°、上方向90°
+  let deg = Math.atan2(y, x) * 180 / Math.PI;
+  if (deg < 0) deg += 360;
+  if (Math.abs(deg - 360) < 1e-10) deg = 0;
+
+  $("angle").textContent = deg.toFixed(digits);
+
+  const horizontal = Math.abs(x) < zero ? "" :
+    (x > 0 ? "外方" : "内方");
+  const vertical = Math.abs(y) < zero ? "" :
+    (y > 0 ? "上方" : "下方");
+
+  $("direction").textContent =
+    [horizontal, vertical].filter(Boolean).join("・");
+
+  message.textContent = "";
+}
+
+ids.forEach(id => $(id).addEventListener("input", calculate));
+ids.forEach(id => $(id).addEventListener("change", calculate));
+
+$("reset").addEventListener("click", () => {
+  $("horizontal").value = "0";
+  $("hdir").value = "out";
+  $("vertical").value = "0";
+  $("vdir").value = "up";
+  $("precision").value = "2";
+  calculate();
+});
+
+$("copy").addEventListener("click", async () => {
+  const text =
+    "プリズム合成計算\n" +
+    "水平：" + $("horizontal").value + "Δ（" +
+      $("hdir").selectedOptions[0].text + "）\n" +
+    "垂直：" + $("vertical").value + "Δ（" +
+      $("vdir").selectedOptions[0].text + "）\n" +
+    "合成度数：" + $("magnitude").textContent + "Δ\n" +
+    "角度：" + $("angle").textContent + "°\n" +
+    "基底方向：" + $("direction").textContent;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    $("message").textContent = "計算結果をコピーしました。";
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    $("message").textContent = ok
+      ? "計算結果をコピーしました。"
+      : "コピーできませんでした。結果を手動で選択してください。";
+  }
+});
+
+calculate();
+</script>
+</body>
+</html>
