@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>プリズム合成計算</title>
   <style>
     * {
@@ -22,13 +22,12 @@
 
     h1 {
       font-size: 1.5rem;
-      margin-bottom: 8px;
     }
 
-    .description {
+    .description,
+    .note {
       color: #555;
       font-size: 0.9rem;
-      margin-bottom: 20px;
     }
 
     .panel {
@@ -41,10 +40,6 @@
 
     .field {
       margin-bottom: 18px;
-    }
-
-    .field:last-child {
-      margin-bottom: 0;
     }
 
     label {
@@ -105,24 +100,13 @@
     .result-value {
       font-size: 1.5rem;
       font-weight: bold;
-      margin: 5px 0;
-    }
-
-    .result-detail {
-      font-size: 0.95rem;
-      margin-top: 10px;
+      margin: 5px 0 14px;
     }
 
     .error {
       color: #b42318;
       font-weight: bold;
       margin-top: 10px;
-    }
-
-    .note {
-      color: #555;
-      font-size: 0.85rem;
-      margin-top: 12px;
     }
 
     .direction-table {
@@ -164,11 +148,16 @@
       <label>水平プリズム</label>
       <div class="input-row">
         <div>
-          <label for="horizontal" style="font-weight:normal">プリズム量（Δ）</label>
-          <input id="horizontal" type="number" min="0" step="0.1" value="3">
+          <label for="horizontal" style="font-weight:normal">
+            プリズム量（Δ）
+          </label>
+          <input id="horizontal" type="number"
+                 min="0" step="0.1" value="0">
         </div>
         <div>
-          <label for="horizontalDirection" style="font-weight:normal">基底方向</label>
+          <label for="horizontalDirection" style="font-weight:normal">
+            基底方向
+          </label>
           <select id="horizontalDirection">
             <option value="BO">BO（耳側）</option>
             <option value="BI">BI（鼻側）</option>
@@ -181,11 +170,16 @@
       <label>垂直プリズム</label>
       <div class="input-row">
         <div>
-          <label for="vertical" style="font-weight:normal">プリズム量（Δ）</label>
-          <input id="vertical" type="number" min="0" step="0.1" value="4">
+          <label for="vertical" style="font-weight:normal">
+            プリズム量（Δ）
+          </label>
+          <input id="vertical" type="number"
+                 min="0" step="0.1" value="0">
         </div>
         <div>
-          <label for="verticalDirection" style="font-weight:normal">基底方向</label>
+          <label for="verticalDirection" style="font-weight:normal">
+            基底方向
+          </label>
           <select id="verticalDirection">
             <option value="BU">BU（上方）</option>
             <option value="BD">BD（下方）</option>
@@ -212,18 +206,22 @@
       </select>
     </div>
 
-    <button class="calculate" id="calculate">計算する</button>
-    <button class="reset" id="reset">リセット</button>
+    <button type="button" class="calculate" id="calculate">
+      計算する
+    </button>
+    <button type="button" class="reset" id="reset">
+      リセット
+    </button>
 
     <div id="error" class="error" role="alert"></div>
 
     <div class="result" aria-live="polite">
       <h2>計算結果</h2>
       <div>合成プリズム量</div>
-      <div class="result-value" id="magnitude">5.00 Δ</div>
+      <div class="result-value" id="magnitude">0.00 Δ</div>
       <div>角度（検者から見た検眼枠上）</div>
-      <div class="result-value" id="angle">126.87°</div>
-      <div class="result-detail" id="direction">検眼枠上：左上方向</div>
+      <div class="result-value" id="angle">—</div>
+      <div id="direction">合成プリズムなし（方向なし）</div>
     </div>
   </div>
 
@@ -245,146 +243,143 @@
     </table>
     <p class="note">
       角度は反時計回りに増加します。右眼・左眼で耳側と鼻側の左右関係が異なるため、
-      水平成分の符号は眼の選択に応じて変換します。
+      水平成分の符号を眼の選択に応じて変換します。
     </p>
   </div>
 
   <script>
     "use strict";
 
-    const eyeInput = document.getElementById("eye");
-    const horizontalInput = document.getElementById("horizontal");
-    const horizontalDirectionInput =
-      document.getElementById("horizontalDirection");
-    const verticalInput = document.getElementById("vertical");
-    const verticalDirectionInput =
-      document.getElementById("verticalDirection");
+    const $ = id => document.getElementById(id);
 
-    const magnitudeDigitsInput =
-      document.getElementById("magnitudeDigits");
-    const angleDigitsInput =
-      document.getElementById("angleDigits");
+    // 指定桁数で四捨五入する
+    function roundHalfUp(value, digits) {
+      const factor = 10 ** digits;
+      const rounded =
+        Math.floor(Math.abs(value) * factor + 0.5000000001) / factor;
+      return value < 0 ? -rounded : rounded;
+    }
 
-    const magnitudeOutput = document.getElementById("magnitude");
-    const angleOutput = document.getElementById("angle");
-    const directionOutput = document.getElementById("direction");
-    const errorOutput = document.getElementById("error");
+    // 指定桁数で表示する（末尾の0も表示）
+    function formatRounded(value, digits) {
+      return roundHalfUp(value, digits).toFixed(digits);
+    }
 
     function calculate() {
-      errorOutput.textContent = "";
+      $("error").textContent = "";
 
-      const eye = eyeInput.value;
-      const horizontal = Number(horizontalInput.value);
-      const vertical = Number(verticalInput.value);
-      const horizontalDirection = horizontalDirectionInput.value;
-      const verticalDirection = verticalDirectionInput.value;
+      const eye = $("eye").value;
+      const hText = $("horizontal").value.trim();
+      const vText = $("vertical").value.trim();
+      const h = Number(hText);
+      const v = Number(vText);
+      const hDir = $("horizontalDirection").value;
+      const vDir = $("verticalDirection").value;
 
       if (
-        horizontalInput.value.trim() === "" ||
-        verticalInput.value.trim() === "" ||
-        !Number.isFinite(horizontal) ||
-        !Number.isFinite(vertical) ||
-        horizontal < 0 ||
-        vertical < 0
+        hText === "" ||
+        vText === "" ||
+        !Number.isFinite(h) ||
+        !Number.isFinite(v) ||
+        h < 0 ||
+        v < 0
       ) {
-        errorOutput.textContent =
-          "プリズム量は0以上の数値を入力してください。";
+        $("error").textContent =
+          "水平・垂直プリズム量には、0以上の数値を入力してください。";
+        $("magnitude").textContent = "—";
+        $("angle").textContent = "—";
+        $("direction").textContent = "";
         return;
       }
 
-      // 検者から見た右側を +X、上方を +Y とする
-      // OD：BOは左、BIは右
-      // OS：BOは右、BIは左
+      /*
+       * 検者から見た右側を +X、左側を -X、
+       * 上方を +Y、下方を -Y とする。
+       *
+       * OD：BOは検者から見て左、BIは右。
+       * OS：BOは検者から見て右、BIは左。
+       */
       let x;
 
       if (eye === "OD") {
-        x = horizontalDirection === "BO"
-          ? -horizontal
-          : horizontal;
+        x = hDir === "BO" ? -h : h;
       } else {
-        x = horizontalDirection === "BO"
-          ? horizontal
-          : -horizontal;
+        x = hDir === "BO" ? h : -h;
       }
 
-      const y = verticalDirection === "BU"
-        ? vertical
-        : -vertical;
-
+      const y = vDir === "BU" ? v : -v;
       const magnitude = Math.hypot(x, y);
+
+      // 0Δでは方向角は定義しない
+      const magnitudeDigits = Number($("magnitudeDigits").value);
+      const angleDigits = Number($("angleDigits").value);
+
+      $("magnitude").textContent =
+        formatRounded(magnitude, magnitudeDigits) + " Δ";
+
+      if (magnitude === 0) {
+        $("angle").textContent = "—";
+        $("direction").textContent = "合成プリズムなし（方向なし）";
+        return;
+      }
 
       let angle = Math.atan2(y, x) * 180 / Math.PI;
       angle = (angle + 360) % 360;
 
-      if (Math.abs(angle - 360) < 1e-10) {
-        angle = 0;
-      }
+      $("angle").textContent =
+        formatRounded(angle, angleDigits) + "°";
 
-      // 表示桁数は表示だけに適用し、内部計算精度は維持する
-      const magnitudeDigits = Number(magnitudeDigitsInput.value);
-      const angleDigits = Number(angleDigitsInput.value);
+      const horizontalText =
+        x > 0 ? "右" : x < 0 ? "左" : "";
+      const verticalText =
+        y > 0 ? "上" : y < 0 ? "下" : "";
 
-      magnitudeOutput.textContent =
-        magnitude.toFixed(magnitudeDigits) + " Δ";
-      angleOutput.textContent =
-        angle.toFixed(angleDigits) + "°";
-
-      if (magnitude === 0) {
-        directionOutput.textContent =
-          "合成プリズムなし（方向なし）";
+      if (horizontalText && verticalText) {
+        $("direction").textContent =
+          "検眼枠上：" + horizontalText + verticalText + "方向";
+      } else if (horizontalText) {
+        $("direction").textContent =
+          "検眼枠上：" + horizontalText + "方向";
       } else {
-        const horizontalText =
-          x > 0 ? "右" :
-          x < 0 ? "左" : "";
-
-        const verticalText =
-          y > 0 ? "上" :
-          y < 0 ? "下" : "";
-
-        if (horizontalText && verticalText) {
-          directionOutput.textContent =
-            "検眼枠上：" + horizontalText + verticalText + "方向";
-        } else if (horizontalText) {
-          directionOutput.textContent =
-            "検眼枠上：" + horizontalText + "方向";
-        } else {
-          directionOutput.textContent =
-            "検眼枠上：" + verticalText + "方向";
-        }
+        $("direction").textContent =
+          "検眼枠上：" + verticalText + "方向";
       }
     }
 
     function reset() {
-      eyeInput.value = "OD";
-      horizontalInput.value = "3";
-      horizontalDirectionInput.value = "BO";
-      verticalInput.value = "4";
-      verticalDirectionInput.value = "BU";
-      magnitudeDigitsInput.value = "2";
-      angleDigitsInput.value = "2";
+      // 水平・垂直の値を0にする
+      $("horizontal").value = "0";
+      $("vertical").value = "0";
+
+      // その他の選択項目も初期設定に戻す
+      $("eye").value = "OD";
+      $("horizontalDirection").value = "BO";
+      $("verticalDirection").value = "BU";
+      $("magnitudeDigits").value = "2";
+      $("angleDigits").value = "2";
+
+      // 結果をすぐに更新
       calculate();
     }
 
-    document.getElementById("calculate")
-      .addEventListener("click", calculate);
+    $("calculate").addEventListener("click", calculate);
+    $("reset").addEventListener("click", reset);
 
-    document.getElementById("reset")
-      .addEventListener("click", reset);
-
-    // 入力や表示桁数を変更したら即時に再計算
+    // 入力や選択を変更したときも自動計算
     [
-      eyeInput,
-      horizontalInput,
-      horizontalDirectionInput,
-      verticalInput,
-      verticalDirectionInput,
-      magnitudeDigitsInput,
-      angleDigitsInput
-    ].forEach(element => {
-      element.addEventListener("input", calculate);
-      element.addEventListener("change", calculate);
+      "eye",
+      "horizontal",
+      "horizontalDirection",
+      "vertical",
+      "verticalDirection",
+      "magnitudeDigits",
+      "angleDigits"
+    ].forEach(id => {
+      $(id).addEventListener("input", calculate);
+      $(id).addEventListener("change", calculate);
     });
 
+    // 起動時は0Δから開始
     calculate();
   </script>
 </body>
