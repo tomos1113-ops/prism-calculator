@@ -35,7 +35,6 @@ header p { margin: 0; color: #dceaf5; font-size: 14px; }
   box-shadow: 0 2px 8px #16324f0d;
 }
 h2 { font-size: 17px; margin: 0 0 15px; }
-
 label { display: block; font-size: 14px; font-weight: 650; }
 
 input, select, button {
@@ -108,7 +107,7 @@ footer { font-size: 12px; color: #64748b; line-height: 1.7; padding: 8px 2px; }
 
 <header>
   <h1>プリズム合成計算</h1>
-  <p>左右眼の基底方向を考慮して、合成度数と角度を計算します。</p>
+  <p>左右眼の基底方向を考慮した合成プリズム計算</p>
 </header>
 
 <section class="card">
@@ -182,14 +181,14 @@ footer { font-size: 12px; color: #64748b; line-height: 1.7; padding: 8px 2px; }
 
     <div class="tile">
       <small>合成基底方向</small>
-      <div class="value" id="direction">—</div>
+      <div class="value" id="direction">耳側・上方</div>
     </div>
   </div>
 
   <div class="tile" style="margin-top:12px">
     <small>計算に使用した成分</small>
-    <p>水平成分（X）：<strong><span id="xcomp">—</span> Δ</strong></p>
-    <p>垂直成分（Y）：<strong><span id="ycomp">—</span> Δ</strong></p>
+    <p>水平成分（X）：<strong><span id="xcomp">3.00</span> Δ</strong></p>
+    <p>垂直成分（Y）：<strong><span id="ycomp">4.00</span> Δ</strong></p>
   </div>
 
   <button class="primary" id="copy" type="button">
@@ -200,58 +199,55 @@ footer { font-size: 12px; color: #64748b; line-height: 1.7; padding: 8px 2px; }
 
 <section class="card">
   <h2>④ 角度の定義</h2>
-  <p>本プログラムでは、画面上の右方向を0°として、反時計回りに角度を増加させます。</p>
+  <p>画面上の右方向を0°とし、反時計回りに角度を増加させます。</p>
+
   <div class="two">
-    <div class="tile">
-      <strong>0°</strong><br>右方向
-    </div>
-    <div class="tile">
-      <strong>90°</strong><br>上方向
-    </div>
-    <div class="tile">
-      <strong>180°</strong><br>左方向
-    </div>
-    <div class="tile">
-      <strong>270°</strong><br>下方向
-    </div>
+    <div class="tile"><strong>0°</strong><br>右方向</div>
+    <div class="tile"><strong>90°</strong><br>上方向</div>
+    <div class="tile"><strong>180°</strong><br>左方向</div>
+    <div class="tile"><strong>270°</strong><br>下方向</div>
   </div>
+
   <p class="note">
     右眼では耳側が画面右、鼻側が画面左です。
     左眼では耳側が画面左、鼻側が画面右です。
-    したがって、Base Outの角度は右眼で0°、左眼で180°になります。
+    そのため、Base Outの角度は右眼で0°、左眼で180°になります。
+    合成基底方向の表示は、対象眼に応じて耳側・鼻側に変換されます。
   </p>
 </section>
 
 <section class="card">
   <h2>⑤ 計算式</h2>
-  <p>水平成分をX、垂直成分をYとします。</p>
-  <p><strong>合成度数</strong></p>
+  <p><strong>合成プリズム度数</strong></p>
   <p class="unit">P = √(X² + Y²)</p>
+
   <p><strong>合成角度</strong></p>
   <p class="unit">θ = atan2(Y, X) × 180 / π</p>
+
   <p class="note">
-    角度が負の場合は360°を加算して、0°以上360°未満に変換します。
-    水平・垂直のどちらも0Δの場合、方向角は定まりません。
+    角度が負の場合は360°を加算します。
+    水平・垂直ともに0Δの場合、方向角は定まりません。
   </p>
 </section>
 
 <section class="card">
   <h2>⑥ 動作確認例</h2>
+
   <p><strong>例1：右眼、Base Out 3Δ ＋ Base Up 4Δ</strong></p>
-  <p>合成度数：5.00Δ、合成角度：53.13°</p>
+  <p>合成度数：5.00Δ、角度：53.13°、方向：耳側・上方</p>
 
   <p><strong>例2：左眼、Base Out 3Δ ＋ Base Up 4Δ</strong></p>
-  <p>合成度数：5.00Δ、合成角度：126.87°</p>
+  <p>合成度数：5.00Δ、角度：126.87°、方向：耳側・上方</p>
 
   <p class="note">
-    左右眼を切り替えると、水平成分の符号が反転します。
-    そのため、合成度数が同じでも合成角度は変わります。
+    左右眼を切り替えると水平成分の符号が反転します。
+    合成度数が同じでも、角度は変わります。
   </p>
 </section>
 
 <footer>
   本プログラムはプリズムベクトルの合成を支援する計算ツールです。
-  臨床で使用する前に、施設で採用している基底方向の定義および既知の計算例と照合してください。
+  臨床使用前に、施設で採用している基底方向の定義と既知の計算例で照合してください。
 </footer>
 
 </main>
@@ -290,15 +286,13 @@ function calculate() {
   const isOut = $("hdir").value === "out";
   const isUp = $("vdir").value === "up";
 
-  // 座標系：画面右が +X、画面上が +Y
-  // 右眼：耳側は +X、鼻側は -X
-  // 左眼：耳側は -X、鼻側は +X
-  const x =
-    hval * (
-      (eye === "OD" && isOut) ||
-      (eye === "OS" && !isOut)
-        ? 1 : -1
-    );
+  // 画面右を +X、画面上を +Y とする
+  // 右眼：耳側 +X、鼻側 -X
+  // 左眼：耳側 -X、鼻側 +X
+  const x = hval * (
+    ((eye === "OD" && isOut) ||
+     (eye === "OS" && !isOut)) ? 1 : -1
+  );
 
   // Base Up は +Y、Base Down は -Y
   const y = vval * (isUp ? 1 : -1);
@@ -319,7 +313,7 @@ function calculate() {
     return;
   }
 
-  // atan2で全象限の角度を計算
+  // atan2で角度を計算し、0°以上360°未満に変換
   let deg = Math.atan2(y, x) * 180 / Math.PI;
 
   if (deg < 0) deg += 360;
@@ -327,9 +321,15 @@ function calculate() {
 
   $("angle").textContent = deg.toFixed(digits);
 
+  // 合成基底方向を解剖学的方向で表示
   const horizontal = Math.abs(x) < zero
     ? ""
-    : (x > 0 ? "画面右方向" : "画面左方向");
+    : (
+        ((eye === "OD" && x > 0) ||
+         (eye === "OS" && x < 0))
+          ? "耳側"
+          : "鼻側"
+      );
 
   const vertical = Math.abs(y) < zero
     ? ""
