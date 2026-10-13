@@ -194,12 +194,30 @@
       </div>
     </div>
 
+    <div class="field">
+      <label for="magnitudeDigits">合成プリズム量の表示桁数</label>
+      <select id="magnitudeDigits">
+        <option value="2">小数点第2位まで</option>
+        <option value="1">小数点第1位まで</option>
+        <option value="0">整数</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="angleDigits">角度の表示桁数</label>
+      <select id="angleDigits">
+        <option value="2">小数点第2位まで</option>
+        <option value="1">小数点第1位まで</option>
+        <option value="0">整数</option>
+      </select>
+    </div>
+
     <button class="calculate" id="calculate">計算する</button>
     <button class="reset" id="reset">リセット</button>
 
     <div id="error" class="error" role="alert"></div>
 
-    <div class="result" id="result" aria-live="polite">
+    <div class="result" aria-live="polite">
       <h2>計算結果</h2>
       <div>合成プリズム量</div>
       <div class="result-value" id="magnitude">5.00 Δ</div>
@@ -242,6 +260,11 @@
     const verticalDirectionInput =
       document.getElementById("verticalDirection");
 
+    const magnitudeDigitsInput =
+      document.getElementById("magnitudeDigits");
+    const angleDigitsInput =
+      document.getElementById("angleDigits");
+
     const magnitudeOutput = document.getElementById("magnitude");
     const angleOutput = document.getElementById("angle");
     const directionOutput = document.getElementById("direction");
@@ -269,15 +292,9 @@
         return;
       }
 
-      /*
-       * 座標系：
-       * 検者から見て右側を +X、左側を -X、
-       * 上方を +Y、下方を -Y とする。
-       *
-       * OD：BOは検者から見て左、BIは右。
-       * OS：BOは検者から見て右、BIは左。
-       */
-
+      // 検者から見た右側を +X、上方を +Y とする
+      // OD：BOは左、BIは右
+      // OS：BOは右、BIは左
       let x;
 
       if (eye === "OD") {
@@ -299,18 +316,22 @@
       let angle = Math.atan2(y, x) * 180 / Math.PI;
       angle = (angle + 360) % 360;
 
-      // 浮動小数点誤差による360°表示を避ける
       if (Math.abs(angle - 360) < 1e-10) {
         angle = 0;
       }
 
-      magnitudeOutput.textContent = magnitude.toFixed(2) + " Δ";
-      angleOutput.textContent = angle.toFixed(2) + "°";
+      // 表示桁数は表示だけに適用し、内部計算精度は維持する
+      const magnitudeDigits = Number(magnitudeDigitsInput.value);
+      const angleDigits = Number(angleDigitsInput.value);
 
-      let directionText;
+      magnitudeOutput.textContent =
+        magnitude.toFixed(magnitudeDigits) + " Δ";
+      angleOutput.textContent =
+        angle.toFixed(angleDigits) + "°";
 
       if (magnitude === 0) {
-        directionText = "合成プリズムなし（方向なし）";
+        directionOutput.textContent =
+          "合成プリズムなし（方向なし）";
       } else {
         const horizontalText =
           x > 0 ? "右" :
@@ -321,20 +342,16 @@
           y < 0 ? "下" : "";
 
         if (horizontalText && verticalText) {
-          directionText =
+          directionOutput.textContent =
             "検眼枠上：" + horizontalText + verticalText + "方向";
         } else if (horizontalText) {
-          directionText =
+          directionOutput.textContent =
             "検眼枠上：" + horizontalText + "方向";
-        } else if (verticalText) {
-          directionText =
-            "検眼枠上：" + verticalText + "方向";
         } else {
-          directionText = "合成プリズムなし";
+          directionOutput.textContent =
+            "検眼枠上：" + verticalText + "方向";
         }
       }
-
-      directionOutput.textContent = directionText;
     }
 
     function reset() {
@@ -343,11 +360,30 @@
       horizontalDirectionInput.value = "BO";
       verticalInput.value = "4";
       verticalDirectionInput.value = "BU";
+      magnitudeDigitsInput.value = "2";
+      angleDigitsInput.value = "2";
       calculate();
     }
 
-    document.getElementById("calculate").addEventListener("click", calculate);
-    document.getElementById("reset").addEventListener("click", reset);
+    document.getElementById("calculate")
+      .addEventListener("click", calculate);
+
+    document.getElementById("reset")
+      .addEventListener("click", reset);
+
+    // 入力や表示桁数を変更したら即時に再計算
+    [
+      eyeInput,
+      horizontalInput,
+      horizontalDirectionInput,
+      verticalInput,
+      verticalDirectionInput,
+      magnitudeDigitsInput,
+      angleDigitsInput
+    ].forEach(element => {
+      element.addEventListener("input", calculate);
+      element.addEventListener("change", calculate);
+    });
 
     calculate();
   </script>
